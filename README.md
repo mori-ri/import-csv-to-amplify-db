@@ -9,6 +9,15 @@ setting json: `<gj7lclc54nbzddx67tqw3w6npy-devxx>/<table name>.json`
 DynamoーDB table　name：Find-gj7lclc54nbzddx67tqw3w6npy-devxx
 
 
+```json
+{
+    "id":"String"
+    "name":"String"
+    "count":"Number"
+}
+```
+
+
 以下のブログを参考に作成しました。: [Implementing bulk CSV ingestion to Amazon DynamoDB](https://aws.amazon.com/blogs/database/implementing-bulk-csv-ingestion-to-amazon-dynamodb/)
 
 You can use your own CSV file or download the test file we provided in this repo. 
