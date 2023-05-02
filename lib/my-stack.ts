@@ -27,19 +27,28 @@ export class MyStack extends cdk.Stack {
 
     // Lambda Permissions
     const dynamoDbPolicy = new iam.PolicyStatement({
-      actions: ["dynamodb:PutItem", "dynamodb:UpdateItem"],
+      actions: [
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:BatchWriteItem",
+      ],
       effect: iam.Effect.ALLOW,
       resources: ["arn:aws:dynamodb:*:*:table/*"],
     });
 
-    const s3ReadPolicy = new iam.PolicyStatement({
-      actions: ["s3:GetObject"],
-      effect: iam.Effect.ALLOW,
-      resources: [bucket.arnForObjects("*")],
+    const s3Policy = new iam.PolicyStatement({
+      actions: [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+      ],
+      resources: [
+        bucket.bucketArn + "/*",
+      ],
     });
 
     lambdaFunction.addToRolePolicy(dynamoDbPolicy);
-    lambdaFunction.addToRolePolicy(s3ReadPolicy);
+    lambdaFunction.addToRolePolicy(s3Policy);
 
     // S3 Event Trigger
     bucket.addEventNotification(

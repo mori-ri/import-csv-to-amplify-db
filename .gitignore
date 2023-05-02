@@ -1,4 +1,4 @@
-*.js
+/test-files
 !jest.config.js
 *.d.ts
 node_modules
