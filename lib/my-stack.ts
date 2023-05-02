@@ -17,12 +17,25 @@ export class MyStack extends cdk.Stack {
     });
 
     // Lambda Function
-    const lambdaFunction = new lambda.Function(this, "ImporterCsvToAmplifyDb", {
-      functionName: "importer-csv-to-amplify-db",
+    const importerCsvToAmplifyDb = new lambda.Function(
+      this,
+      "ImporterCsvToAmplifyDb",
+      {
+        functionName: "importer-csv-to-amplify-db",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        code: lambda.Code.fromAsset("src/ImporterCsvToAmplifyDb"),
+        handler: "index.handler",
+        timeout: cdk.Duration.minutes(10),
+      }
+    );
+
+    const graphqlToCsvJson = new lambda.Function(this, "GraphqlToCsvJson", {
+      functionName: "graphql-to-csv-json",
       runtime: lambda.Runtime.NODEJS_18_X,
-      code: lambda.Code.fromAsset("src"),
+      code: lambda.Code.fromAsset("src/GraphqlToCsvJson"),
       handler: "index.handler",
-      timeout: cdk.Duration.minutes(10),
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(60),
     });
 
     // Lambda Permissions
@@ -37,23 +50,24 @@ export class MyStack extends cdk.Stack {
     });
 
     const s3Policy = new iam.PolicyStatement({
-      actions: [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-      ],
-      resources: [
-        bucket.bucketArn + "/*",
-      ],
+      actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      resources: [bucket.bucketArn + "/*"],
     });
 
-    lambdaFunction.addToRolePolicy(dynamoDbPolicy);
-    lambdaFunction.addToRolePolicy(s3Policy);
+    importerCsvToAmplifyDb.addToRolePolicy(dynamoDbPolicy);
+    importerCsvToAmplifyDb.addToRolePolicy(s3Policy);
+    graphqlToCsvJson.addToRolePolicy(s3Policy);
 
     // S3 Event Trigger
     bucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
-      new s3Notifications.LambdaDestination(lambdaFunction)
+      new s3Notifications.LambdaDestination(importerCsvToAmplifyDb),
+      { suffix: ".csv" }
+    );
+    bucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3Notifications.LambdaDestination(graphqlToCsvJson),
+      { suffix: ".graphql" }
     );
   }
 }
