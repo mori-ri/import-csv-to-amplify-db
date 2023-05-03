@@ -46,17 +46,63 @@ function getObjectStreamToString(readStream) {
   });
 }
 
+function getDynamoDBType(graphQLType) {
+  const mapping = {
+    ID: "String",
+    String: "String",
+    Int: "Number",
+    Float: "Number",
+    Boolean: "Boolean",
+    AWSDateTime: "String",
+    AWSDate: "String",
+    AWSTime: "String",
+    AWSTimestamp: "Number",
+    AWSJSON: "String",
+    AWSPhone: "String",
+    AWSEmail: "String",
+    AWSURL: "String",
+    AWSIPAddress: "String",
+  };
+
+  let typeName;
+  let isNonNull = false;
+
+  if (graphQLType.kind === "NamedType") {
+    typeName = graphQLType.name.value;
+  } else if (
+    graphQLType.kind === "NonNullType" &&
+    graphQLType.type.kind === "NamedType"
+  ) {
+    typeName = graphQLType.type.name.value;
+    isNonNull = true;
+  } else {
+    return null;
+  }
+
+  const dynamoDBType = mapping[typeName];
+  if (dynamoDBType) {
+    return isNonNull ? `${dynamoDBType}!` : dynamoDBType;
+  } else {
+    // Ignore unknown types and continue
+    return null;
+  }
+}
+
 function extractTypes(ast) {
   const typeMap = {};
 
   for (const definition of ast.definitions) {
-    if (definition.kind === "ObjectTypeDefinition") {
+    if (
+      definition.kind === "ObjectTypeDefinition" &&
+      definition.directives.some((d) => d.name.value === "model")
+    ) {
       const fields = {};
 
       for (const field of definition.fields) {
-        const fieldType =
-          field.type.kind === "NonNullType" ? "String!" : "String";
-        fields[field.name.value] = fieldType;
+        const fieldType = getDynamoDBType(field.type);
+        if (fieldType) {
+          fields[field.name.value] = fieldType;
+        }
       }
 
       typeMap[definition.name.value] = fields;
