@@ -38,7 +38,13 @@ exports.handler = async (event) => {
   for await (const record of csvStream) {
     lineNumber++;
     if (lineNumber === 1) {
-      validateHeaders(record, columnTypes);
+      const validationResult = await validateHeaders(record, columnTypes);
+      await uploadLog(
+        bucket,
+        envName,
+        tableNameWithExtension,
+        validationResult
+      );
     }
 
     const item = {};
@@ -46,9 +52,7 @@ exports.handler = async (event) => {
     for (const [column, value] of Object.entries(record)) {
       const typeDefinition = columnTypes[column];
       if (!typeDefinition) {
-        throw new Error(
-          `Column "${column}" is not defined in the JSON schema.`
-        );
+        continue
       }
 
       const [type, required] = typeDefinition.split("!");
@@ -79,23 +83,19 @@ exports.handler = async (event) => {
   console.log("CSV file processed successfully.");
 };
 
-function validateHeaders(record, columnTypes) {
+async function validateHeaders(record, columnTypes) {
   const recordColumns = Object.keys(record);
   const jsonColumns = Object.keys(columnTypes);
 
-  if (recordColumns.length !== jsonColumns.length) {
-    throw new Error(
-      "CSV header count does not match JSON column definition count."
-    );
-  }
+  const notFoundInJSON = recordColumns.filter(
+    (column) => !jsonColumns.includes(column)
+  );
+  const countDoesNotMatch = recordColumns.length !== jsonColumns.length;
 
-  for (const column of recordColumns) {
-    if (!jsonColumns.includes(column)) {
-      throw new Error(
-        `CSV header "${column}" not found in JSON column definition.`
-      );
-    }
-  }
+  return {
+    notFoundInJSON,
+    countDoesNotMatch,
+  };
 }
 
 async function writeToDynamoDb(tableName, records) {
@@ -141,4 +141,33 @@ async function moveToCompletedDirectory(bucket, key) {
     console.error("Error moving CSV file to completed directory:", error);
     throw error;
   }
+}
+
+async function uploadLog(
+  bucket,
+  envName,
+  tableNameWithExtension,
+  validationResult
+) {
+  const now = new Date();
+  const dateTimeString = now.toISOString().replace(/[:.]/g, "-");
+  const logFilename = `${envName}/completed/${dateTimeString}-${tableNameWithExtension}.log`;
+  const logContent = {
+    result:
+      validationResult.notFoundInJSON.length === 0 &&
+      !validationResult.countDoesNotMatch
+        ? "success"
+        : "error",
+    TableName: tableNameWithExtension.replace(".csv", "") + "-" + envName,
+    datetime: new Date().toISOString(),
+    validation: validationResult,
+  };
+
+  const putObjectParams = {
+    Bucket: bucket,
+    Key: logFilename,
+    Body: JSON.stringify(logContent),
+  };
+
+  await s3.putObject(putObjectParams).promise();
 }

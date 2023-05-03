@@ -79,13 +79,8 @@ function getDynamoDBType(graphQLType) {
     return null;
   }
 
-  const dynamoDBType = mapping[typeName];
-  if (dynamoDBType) {
-    return isNonNull ? `${dynamoDBType}!` : dynamoDBType;
-  } else {
-    // Ignore unknown types and continue
-    return null;
-  }
+  const dynamoDBType = mapping[typeName] || "String";
+  return isNonNull ? `${dynamoDBType}!` : dynamoDBType;
 }
 
 function extractTypes(ast) {
@@ -99,9 +94,27 @@ function extractTypes(ast) {
       const fields = {};
 
       for (const field of definition.fields) {
+        if (hasConnectionDirective(field)) {
+          continue;
+        }
+
         const fieldType = getDynamoDBType(field.type);
         if (fieldType) {
           fields[field.name.value] = fieldType;
+        }
+      }
+
+      // Add required fields if they don't exist
+      const requiredFields = {
+        id: "String!",
+        createdAt: "String!",
+        updatedAt: "String!",
+        __typename: "String!",
+      };
+
+      for (const [fieldName, fieldType] of Object.entries(requiredFields)) {
+        if (!fields[fieldName]) {
+          fields[fieldName] = fieldType;
         }
       }
 
@@ -110,4 +123,11 @@ function extractTypes(ast) {
   }
 
   return typeMap;
+}
+
+function hasConnectionDirective(field) {
+  return field.directives.some(
+    (directive) =>
+      directive.name.value === "hasOne" || directive.name.value === "hasMany"
+  );
 }
