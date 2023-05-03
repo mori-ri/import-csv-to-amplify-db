@@ -1,33 +1,16 @@
-## Implementing bulk CSV ingestion to Amplify DynamoDB
+# Implementing bulk CSV ingestion to Amplify DynamoDB
 
-Amplify で作成した Dynamo DB に CSV ファイルを一括でインポートする方法を紹介します。
-Amplify の DynamoDB は、AWS の DynamoDB とは違い、CSV ファイルを一括でインポートする機能がありません。データの移行のために CSV をダウンロードし、再度インポートするためのデザインです。
+This serverless application is designed to import CSV files from an Amazon S3 bucket into an Amazon DynamoDB table for Amplify using AWS Lambda. It reads CSV files uploaded to the S3 bucket, processes them, and inserts the data into the corresponding DynamoDB table. Upon successful import, the CSV file is moved to a `completed` directory within the S3 bucket.
 
-- Dynamo ー DB table name： `<table name>-<random strings>-<amplify env name>`
-  - exsample: `Todo-xxxxxxxxxxxxxxxxxxxxxxxxxx-dev`
-- S3 の Key 構成：`<random strings>-<amplify env name>/<table name>.csv`
-- setting json: `<random strings>-<amplify env name>/<table name>.json`
-
-```json
-{
-    "id":"String"
-    "name":"String"
-    "count":"Number"
-}
-```
-
-以下は、このプロジェクト用の README ファイルの例です。プロジェクトの目的、機能、およびインストール方法を説明しています。
-
-# CSV to DynamoDB Importer
-
-This serverless application is designed to import CSV files from an Amazon S3 bucket into an Amazon DynamoDB table using AWS Lambda. It reads CSV files uploaded to the S3 bucket, processes them, and inserts the data into the corresponding DynamoDB table. Upon successful import, the CSV file is moved to a `completed` directory within the S3 bucket.
+This can be used to download and re-import CSVs for data migration when tables are redefined in Amplify, or to restore CSVs created for backup.
 
 ## Features
 
 - Serverless architecture using AWS Lambda
-- Triggered by S3 events when a new CSV file is uploaded
+- Triggered by S3 events when a new CSV and schema file is uploaded
 - Supports different column types defined in a separate JSON file
 - Validates CSV headers against JSON column definitions
+- JSON file defining the type for each column is automatically generated from schema.graphql
 - Batch write to DynamoDB for efficient data insertion
 - Moves successfully processed CSV files to a `completed` directory with a timestamp
 
@@ -36,7 +19,8 @@ This serverless application is designed to import CSV files from an Amazon S3 bu
 - AWS account with appropriate permissions to create and manage resources
 - [AWS CLI](https://aws.amazon.com/cli/) installed and configured
 - [Node.js](https://nodejs.org/) 12.x or later installed
-- [AWS CDK](https://aws.amazon.com/cdk/) installed (Version 1.x)
+- [AWS CDK](https://aws.amazon.com/cdk/) installed (Version 2.x)
+
 
 ## Deployment
 
@@ -59,43 +43,44 @@ This serverless application is designed to import CSV files from an Amazon S3 bu
    cdk bootstrap
    ```
 
-4. Deploy the application to your AWS account:
+4. The appropriate AWS account and region must be set up during the CDK template.
+
+5. Deploy the application to your AWS account:
+
    ```
    cdk deploy
    ```
 
 ## Usage
 
-1. Upload a CSV file to the S3 bucket with the following naming convention:
+1. Upload the GraphQL schema file (`schema.graphql`) to the S3 bucket. This will trigger the `graphqlToCsvJsonFunction` Lambda function and generate the corresponding typedef JSON file.
 
    ```
-   <EnvName>/<TableName>.csv
+   <random strings>-<amplify env name>/schema.graphql
    ```
 
-   Replace `<EnvName>` with your desired environment name and `<TableName>` with the name of the target DynamoDB table.
-
-2. Create a JSON file containing the column definitions with the same naming convention:
-
-   ```
-   <EnvName>/<TableName>.json
-   ```
-
-   Example content:
-
-   ```
-   {
-       "id": "String",
-       "name": "String",
-       "count": "Number"
-   }
-   ```
+   Replace `<random strings>-<amplify env name>` with your desired name of Dynamo DB table  to be written： `<TableName>-<random strings>-<amplify env name>`(exsample: If `Todo-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-dev` is name of write table, set `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-dev` to key of object.)
 
    Note: To mark a column as required, append "!" to the type, e.g., `"id": "String!"`.
 
-3. Upload the JSON file to the same S3 bucket.
+2. Upload a CSV file to the same S3 bucket with the following naming convention:
 
-The Lambda function will automatically process the uploaded CSV file, validate it against the JSON column definitions, and insert the data into the specified DynamoDB table. If the import is successful, the CSV file will be moved to a `completed` directory within the S3 bucket.
+   ```
+   <random strings>-<amplify env name>/<TableName>.csv
+   ```
+
+   Replace `<TableName>` with the name of the target DynamoDB table.
+
+   The Lambda function will automatically process the uploaded CSV file, validate it against the JSON column definitions, and insert the data into the specified DynamoDB table. 
+
+3. If successful, the CSV file will be moved to `completed` directory within the S3 bucket.
+
+Note: This process will only process object types that have an `@model` directive in the GraphQL schema.
+
 
 ## License
 
 This project is open-source and available under the [MIT License](LICENSE).
+
+setting json: `<random strings>-<amplify env name>/<table name>.json`
+
