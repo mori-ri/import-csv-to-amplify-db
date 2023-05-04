@@ -77,10 +77,30 @@ This can be used to download and re-import CSVs for data migration when tables a
 
 Note: This process will only process object types that have an `@model` directive in the GraphQL schema.
 
+### GraphqlToCsvJson
+
+- Types used in AppSync and types used in DynamoDB
+   | AppSync (GraphQL) | DynamoDB          |
+   |-------------------|-------------------|
+   | ID                | String            |
+   | String            | String            |
+   | Int               | Number            |
+   | Float             | Number            |
+   | Boolean           | Boolean           |
+   | AWSDateTime       | String            |
+   | AWSDate           | String            |
+   | AWSTime           | String            |
+   | AWSTimestamp      | Number            |
+   | AWSJSON           | String            |
+   | AWSPhone          | String            |
+   | AWSEmail          | String            |
+   | AWSURL            | String            |
+   | AWSIPAddress      | String            |
+   | * other type      | String            |
+- support composite sort keys
+example) sortKeyFields: ["status", "updatedAt"]
+
 
 ## License
 
 This project is open-source and available under the [MIT License](LICENSE).
-
-setting json: `<random strings>-<amplify env name>/<table name>.json`
-
