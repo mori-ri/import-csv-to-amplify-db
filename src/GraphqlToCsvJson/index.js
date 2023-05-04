@@ -102,6 +102,11 @@ function extractTypes(ast) {
         if (fieldType) {
           fields[field.name.value] = fieldType;
         }
+
+        const sortKeyFields = getSortKeyFields(field);
+        if (sortKeyFields && sortKeyFields.length > 1) {
+          fields[sortKeyFields.join("#")] = "String!";
+        }
       }
 
       // Add required fields if they don't exist
@@ -123,6 +128,23 @@ function extractTypes(ast) {
   }
 
   return typeMap;
+}
+
+function getSortKeyFields(field) {
+  const indexDirective = field.directives.find(
+    (directive) => directive.name.value === "index"
+  );
+  if (!indexDirective) {
+    return null;
+  }
+  const sortKeyFieldsArgument = indexDirective.arguments.find(
+    (arg) => arg.name.value === "sortKeyFields"
+  );
+  if (!sortKeyFieldsArgument) {
+    return null;
+  }
+
+  return sortKeyFieldsArgument.value.values.map((v) => v.value);
 }
 
 function hasConnectionDirective(field) {
